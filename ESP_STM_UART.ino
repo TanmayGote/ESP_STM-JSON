@@ -1,34 +1,51 @@
+#include <ArduinoJson.h>
 #include "Wire.h"
 #include <MPU6050_light.h>
+#include <BluetoothSerial.h>
 
 MPU6050 mpu(Wire);
-unsigned long timer = 0;
-double z;
-String tosend = "";
+byte status = mpu.begin();
+long timer = 0;
+char formattedString[11];
+String jsonString = "";
+
+String str = " ";
+DynamicJsonDocument doc(1024);
+
+#define resetpin 15
+
 void setup() {
-  Serial.begin(9600);
+
+  Serial.begin(38400);
+  Serial1.begin(38400, SERIAL_8N1, 18, 19);
   Serial2.begin(38400);
   Wire.begin();
-  
   byte status = mpu.begin();
-  Serial.print(F("MPU6050 status: "));
-  Serial.println(status);
-  while(status!=0){ }
-  Serial.println(F("Calculating offsets, do not move MPU6050"));
-  delay(1000);
+  while (status != 0) {}
   mpu.calcOffsets();
-  Serial.println("Done!\n");
+  mpu.calcOffsets(true, true);
 }
 
 void loop() {
   mpu.update();
-  
-    if((millis()-timer)>10){
-    Serial.print("\tZ : ");
-    z = mpu.getAngleZ();
-    timer = millis();  
-    Serial.println(z);
-    tosend = (String)z;
-    Serial2.println(tosend);
+  // doc["Loc"] = (int)mpu.getAngleZ();
+  if ((millis() - timer) > 10) {
+    // Cast MPU6050 values to integers
+    float Val = mpu.getAngleZ();
+    int Z = static_cast<int>(Val);
+    sprintf(formattedString, "%04d", Z);
+    doc["Z"] = formattedString;
   }
+
+  timer = millis();
+  
+  serializeJson(doc, jsonString);
+  // Serial2.print(jsonString);
+  Serial1.print(jsonString);
+  Serial.println(jsonString);
+  // Serial.println(jsonString.length());
+  doc.clear();
+  Serial1.flush();
+  // Serial2.flush();
+  delay(10);
 }
